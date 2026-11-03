@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "subfile_1.h"
+#include "../include/subfile_1.h"
 
 Subfile1 sf1 = {0};
 uint32_t calculatedCRC[6] = {0, 0, 0, 0, 0, 0};

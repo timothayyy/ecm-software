@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "subfile_1.h"
+#include "../include/subfile_1.h"
 
 int main(void) {
 
