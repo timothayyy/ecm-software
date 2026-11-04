@@ -17,6 +17,7 @@ typedef enum {
     WATCHDOG_TIMEOUT_RESET     = 1 << 2, // 00000100
     SOFTWARE_RESET             = 1 << 3, // 00001000
     BROWNOUT_RESET             = 1 << 4, // 00010000
+    SERVICE_REQUEST            = 1 << 5  // 00100000
 } BootReason;
 
 bool checkCRC(uint32_t calculatedCRC[6], const Subfile1 *sf1);

@@ -50,6 +50,10 @@ void checkBootReason(const Subfile1 *sf1)
         printf("BROWNOUT RESET detected.\n");
     }
 
+    if (sf1->T_BOOT_REASON_FLAG & SERVICE_REQUEST) {
+        printf("SERVICE_REQUEST detected.\n");
+    }
+
 }
 
 void checkSaltKey(const Subfile1 *sf1, uint32_t providedSalt) {
