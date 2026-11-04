@@ -5,6 +5,7 @@ uint32_t calculatedCRC[6] = {0, 0, 0, 0, 0, 0};
 uint8_t bootReason = 0;
 
 Subfile1 sf1 = {
+    .T_SECURITY_SEED_KEY_SALT = 0,
     .SC_OPTION_NUM = 1001,
     .DO_OPTION_NUM = 1002
 };
@@ -49,5 +50,12 @@ void checkBootReason(const Subfile1 *sf1)
         printf("BROWNOUT RESET detected.\n");
     }
 
+}
 
+void checkSaltKey(const Subfile1 *sf1, uint32_t providedSalt) {
+    if (sf1->T_SECURITY_SEED_KEY_SALT != providedSalt) {
+        printf("Security key does not match.\n");
+    } else {
+        printf("Success! Security key does match.\n");
+    }
 }

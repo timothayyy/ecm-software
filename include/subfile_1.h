@@ -21,5 +21,6 @@ typedef enum {
 
 bool checkCRC(uint32_t calculatedCRC[6], const Subfile1 *sf1);
 void checkBootReason(const Subfile1 *sf1);
+void checkSaltKey(const Subfile1 *sf1, uint32_t providedSalt);;
 
 #endif //ECM_SUBFILE_1_H
