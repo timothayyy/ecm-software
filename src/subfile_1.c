@@ -10,7 +10,7 @@ Subfile1 sf1 = {
     .DO_OPTION_NUM = 1002
 };
 
-bool checkCRC(uint32_t calculatedCRC[6], const Subfile1 *sf1)
+bool checkCRC(const uint32_t calculatedCRC[6], const Subfile1 *sf1)
 {
     for (int i = 0; i < 6; i++) {
 
