@@ -1,13 +1,41 @@
 #include <stdio.h>
 #include "../include/subfile_1.h"
 
+#include <sys/resource.h>
+
 uint32_t calculatedCRC[6] = {0, 0, 0, 0, 0, 0};
 uint8_t bootReason = 0;
 
 Subfile1 sf1 = {
     .T_SECURITY_SEED_KEY_SALT = 0,
     .SC_OPTION_NUM = 1001,
-    .DO_OPTION_NUM = 1002
+    .DO_OPTION_NUM = 1002,
+    .CC_Max_Vehicle_Speed_Set_Limit = 680,
+    .CC_Minimum_Engage_Speed = 300,
+    .CC_Max_Vehicle_Speed = 750,
+    .VSS_Tire_Revolution_Per_Mile = 504,
+    .Axle_Primary_Ratio = 2.64,
+    .VSS_Sensor_Type_Config = VSS_J1939,
+    .ISD_Idle_Shutdown_Time_Delay = 5,
+    .ISD_Ambient_Air_Temp_Low_Override = 35.0,
+    .ISD_Ambient_Air_Temp_High_Override = 80.0,
+    .ENG_Base_Target_Idle_Speed = 650,
+    .ENG_Battery_Voltage_Low_Idle_Up_Enable = true,
+    .XMSN_Type_Selection = XMSN_AMT,   // amt transmission
+    .XMSN_Tailshaft_Teeth_Count = 16,
+    .ENG_Torque_Limit_Gear_1 = 1450,    // 1450 Lb-Ft
+    .ENG_Torque_Limit_Gear_2 = 1650,    // 1650 Lb-Ft
+    .DRV_Powertrain_Style_Config = 0,
+    .ENG_Max_Governor_Speed_Limit = 2100,
+    .PROT_Coolant_Temp_Warning_Threshold = 215.0,
+    .PROT_Coolant_Temp_Derate_Threshold = 225.0,
+    .PROT_Oil_Pressure_Low_Shutoff_Enable = true,
+    .ENG_Cylinder_Count_Config = 6,
+    .PTO_Governor_Type_Config = 1,
+    .PTO_Max_Engine_Speed = 1100,
+    .EB_Engine_Brake_Level_Config = 3,
+    .ATS_DPF_Regen_In_Transit_Permit = true,
+    .ATS_DEF_Tank_Volume_Capacity = 15.0
 };
 
 bool checkCRC(const uint32_t calculatedCRC[6], const Subfile1 *sf1)

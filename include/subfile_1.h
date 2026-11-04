@@ -23,6 +23,13 @@ typedef enum {
     XMSN_AMT = 2
 } XMSN_Type;
 
+typedef enum {
+    EB_LEVEL_NONE = 0,
+    EB_LEVEL_LOW = 1,
+    EB_LEVEL_MEDIUM = 2,
+    EB_LEVEL_HIGH = 3
+} EB_LevelConfig;
+
 typedef struct {
     uint32_t T_CRC_CHECKSUM[6];
     uint32_t T_SECURITY_SEED_KEY_SALT;
@@ -52,9 +59,10 @@ typedef struct {
     uint8_t ENG_Cylinder_Count_Config;
     uint8_t PTO_Governor_Type_Config;
     uint16_t PTO_Max_Engine_Speed;
-    uint8_t EB_Engine_Brake_Level_Config;
+    EB_LevelConfig EB_Engine_Brake_Level_Config;
     bool ATS_DPF_Regen_In_Transit_Permit;
     double ATS_DEF_Tank_Volume_Capacity;
+    bool cruise_active;
 } Subfile1;
 
 bool checkCRC(const uint32_t calculatedCRC[6], const Subfile1 *sf1);
