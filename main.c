@@ -15,7 +15,7 @@ int main(void) {
     bool result = checkCRC(calculatedCRC, &sf1);
     checkBootReason(&sf1);
     checkSaltKey(&sf1, 1234);
-    ECMRuntimeState runtime = initializeECMRuntimeState();
+    ECMRuntimeState runtime = initializeECMRuntime();
     void maxVehicleSetLimit(const Subfile1 *sf1,
                             const ECMRuntimeState *state);
 

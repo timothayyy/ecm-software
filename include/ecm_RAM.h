@@ -23,7 +23,7 @@ typedef struct {
     double current_oil_temperatures;
 } ECMRuntimeState;
 
-ECMRuntimeState initializeECMRuntimeState(void);
+ECMRuntimeState initializeECMRuntime(void);
 
 
 #endif //ECM_ECM_RAM_H
