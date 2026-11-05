@@ -1,20 +1,34 @@
 # ECM Software Simulator
 
-A C23-based educational project exploring the architecture and core software logic of an automotive diesel Engine Control Module (ECM).
+A modular Engine Control Module (ECM) software simulation written in C, designed to model engine calibration parameters, runtime memory, and control logic for a heavy-duty diesel engine.
 
-## Overview
+This project is inspired by real-world engine calibration and manufacturing processes, with an emphasis on understanding how calibration data interacts with executable control software.
 
-This project is being developed to better understand how embedded engine control software is structured, how it processes operating data, and how different software components interact.
+The simulator is an independent educational project and is not affiliated with Cummins, John Deere, or any other engine manufacturer.
 
-The simulation is inspired by real-world diesel engine control systems and professional experience working with engine calibrations, software releases, and calibration validation.
+## Project Overview
 
-The primary focus is **core ECM software development**, rather than creating or tuning production engine calibrations.
+The objective is to build a simplified ECM software environment that separates three key elements:
 
-The project is a work in progress and will evolve as new C programming concepts are learned and implemented.
+1. **Calibration data:** Parameters that define how the engine and its supporting systems are configured.
+2. **Runtime memory:** Live operating values and control states that change while the engine is running.
+3. **Control logic:** Functions that evaluate calibration parameters and operating conditions to determine how the ECM responds.
+
+The project uses eight calibration subfiles, independent C source modules, and a shared runtime memory structure.
+
+Development is iterative. Functions are implemented individually, tested, and revised as additional systems and dependencies are introduced.
+
+## Technology Stack
+
+- **Language:** C (C23)
+- **IDE:** JetBrains CLion
+- **Build system:** CMake
+- **Compiler:** C23-compatible C compiler
+- **Version control:** Git
+- **Repository hosting:** GitHub
+- **Development environment:** macOS / Apple Silicon
 
 ## Project Structure
-
-The software is organized into eight subfiles, each with a corresponding header file.
 
 ```text
 ecm-software/
@@ -24,6 +38,7 @@ ecm-software/
 ├── main.c
 │
 ├── include/
+│   ├── ecm_RAM.h
 │   ├── subfile_1.h
 │   ├── subfile_2.h
 │   ├── subfile_3.h
@@ -34,6 +49,7 @@ ecm-software/
 │   └── subfile_8.h
 │
 └── src/
+    ├── ecm_RAM.c
     ├── subfile_1.c
     ├── subfile_2.c
     ├── subfile_3.c
@@ -44,100 +60,376 @@ ecm-software/
     └── subfile_8.c
 ```
 
-This is the intended project structure. Not all files or functionality have been implemented.
+### Header Files
 
-## Software Architecture
+Header files in `include/` contain structure definitions, enumerations, and function declarations.
 
-The project uses eight subfiles to organize engine control functionality and parameter definitions.
+### Source Files
 
-Each subfile consists of:
+Source files in `src/` contain function implementations for individual calibration subfiles and shared runtime functionality.
 
-- **`.h` file:** Contains structures, type definitions, constants, and function declarations.
-- **`.c` file:** Contains the corresponding function implementations and software logic.
+### Main Program
 
-`main.c` serves as the application's entry point and coordinates the execution of the simulation.
+`main.c` serves as the application's entry point, initializes the required data structures, and invokes ECM functions for testing.
 
-The subfile system is inspired by ECM software and calibration architectures encountered in industrial engine development. It is not intended to reproduce any manufacturer's proprietary implementation.
+## Calibration Architecture
 
-## Development Focus
+The project uses an eight-subfile architecture to organize ECM configuration and control functionality.
 
-The project will explore several aspects of embedded software engineering:
+| Subfile | Implementation status |
+|---|---|
+| Subfile 1 | Active development — initial calibration and control functions implemented |
+| Subfile 2 | Reserved for future development |
+| Subfile 3 | Reserved for future development |
+| Subfile 4 | Reserved for future development |
+| Subfile 5 | Reserved for future development |
+| Subfile 6 | Reserved for future development |
+| Subfile 7 | Reserved for future development |
+| Subfile 8 | Reserved for future development |
 
-- Data structures and memory management
-- Sensor input processing
-- Engine operating states
-- Fueling and torque control logic
-- Engine protection and fault detection
-- Diagnostic and shutdown conditions
-- Parameter validation and integrity checking
-- Potential simulated CAN bus and SAE J1939 communication
+The architecture is inspired by multi-subfile engine calibration systems, but its implementation is simplified for educational use.
 
-Features will be added incrementally as development progresses.
+The planned division of responsibilities may evolve as the project grows.
 
-### Calibration Parameters
+## Subfile 1 — Configuration and Control Parameters
 
-The software will define parameter structures and implement functions that use those parameters.
+`subfile_1.h` defines the `Subfile1` structure and supporting enumerations.
 
-Calibration values will initially use simplified defaults or test data. Developing realistic engine calibration maps and performing engine tuning are outside the current project scope.
+Subfile 1 currently includes parameters related to:
 
-### CRC Validation
+- Calibration integrity and checksum storage
+- Security seed/key salt
+- Software and diagnostic option identification
+- Boot and reset reasons
+- Cruise control and vehicle speed limits
+- Vehicle speed sensor configuration
+- Tire revolutions per mile and axle ratio
+- Idle shutdown configuration
+- Base engine idle speed
+- Low-voltage idle-up enablement
+- Transmission configuration
+- Engine torque limits
+- Engine governor speed
+- Coolant temperature protection thresholds
+- Oil pressure shutdown configuration
+- Engine cylinder count
+- Power takeoff configuration
+- Engine braking configuration
+- Aftertreatment and DPF regeneration settings
+- DEF tank capacity
 
-One of the initial exercises involves implementing checksum comparison logic using:
+Calibration values are maintained separately from runtime operating data.
 
-- Fixed-width integer types
-- Arrays
-- Structures
-- Pointers
-- Functions
-- Conditional statements
-- Loops
+### Boot Reason Enumeration
 
-The initial implementation compares placeholder checksum values. It is not yet a complete CRC calculation algorithm.
+The `BootReason` enumeration defines flags for:
 
-## Technologies
+```c
+COLD_BOOT
+WARM_BOOT
+WATCHDOG_TIMEOUT_RESET
+SOFTWARE_RESET
+BROWNOUT_RESET
+SERVICE_REQUEST
+```
 
-- **Language:** C23
-- **IDE:** JetBrains CLion
-- **Build System:** CMake
-- **Version Control:** Git / GitHub
-- **Development Platform:** macOS
+Bitwise flags allow multiple boot/reset indicators to be represented and evaluated.
 
-## Build Instructions
+### Engine Braking Configuration
 
-The project uses CMake and a C23-compatible compiler.
+The `EB_LevelConfig` enumeration defines four braking levels:
+
+```c
+typedef enum {
+    EB_LEVEL_NONE = 0,
+    EB_LEVEL_LOW = 1,
+    EB_LEVEL_MEDIUM = 2,
+    EB_LEVEL_HIGH = 3
+} EB_LevelConfig;
+```
+
+These values are used in the engine braking control logic to represent commanded braking stages.
+
+## ECM Runtime Memory
+
+The ECM runtime memory system is defined in:
+
+- `include/ecm_RAM.h`
+- `src/ecm_RAM.c`
+
+The `ECMRuntimeState` structure contains live operating values and control states.
+
+Unlike calibration values, runtime variables are expected to change as the simulated engine operates.
+
+### Runtime Parameters
+
+Current runtime data includes:
+
+| Parameter | Description |
+|---|---|
+| `current_engine_speed` | Current engine RPM |
+| `current_vehicle_speed` | Current vehicle speed |
+| `calculated_engine_torque` | Calculated engine torque |
+| `raw_accel_pedal_voltage` | Accelerator pedal sensor voltage |
+| `calculated_pedal_percent` | Calculated accelerator pedal position |
+| `cruise_control_active_switch` | Cruise control active status |
+| `dynamic_requested_fuel_mass` | Requested fuel quantity |
+| `is_fuel_cut_active` | Fuel cut activation status |
+| `current_engine_brake_level` | Current engine braking stage |
+| `active_engine_brake_cylinders` | Number of active engine braking cylinders |
+| `VGT_Vane_Target_Duty_Cycle` | Commanded VGT duty cycle |
+| `current_coolant_temperatures` | Current coolant temperature |
+| `current_oil_temperatures` | Current oil temperature |
+
+### Runtime Initialization
+
+The function:
+
+```c
+ECMRuntimeState initializeECMRuntime(void);
+```
+
+initializes the ECM runtime structure with default values.
+
+The runtime structure is then passed to control functions using pointers, allowing the functions to read and modify operating states.
+
+## Implemented Functionality
+
+### 1. Calibration Checksum Verification
+
+**Function:** `checkCRC()`
+
+Compares six calculated checksum values against the corresponding values stored in Subfile 1.
+
+The function:
+
+- Iterates through the checksum array.
+- Compares the calculated and stored values.
+- Reports the index of a detected mismatch.
+- Returns `false` when a mismatch occurs.
+- Returns `true` when all values match.
+
+**Current limitation:** This is checksum comparison logic, not a complete CRC-generation algorithm.
+
+### 2. Boot Reason Detection
+
+**Function:** `checkBootReason()`
+
+Evaluates the configured boot reason flags using bitwise operations.
+
+Supported conditions include cold boot, warm boot, watchdog timeout, software reset, brownout reset, and service request.
+
+Multiple flags may be detected during a single evaluation.
+
+### 3. Security Salt Comparison
+
+**Function:** `checkSaltKey()`
+
+Compares a supplied value against the configured security seed/key salt.
+
+The function reports whether the two values match.
+
+**Current limitation:** This is a basic comparison for learning purposes, not a production-grade seed/key authentication implementation.
+
+### 4. Cruise Overspeed and Progressive Engine Braking
+
+**Function:** `maxVehicleSetLimit()`
+
+This function evaluates vehicle speed against the configured maximum cruise set-speed limit while checking cruise control status.
+
+When the simulated overspeed condition is satisfied, the function activates fuel cut and advances through progressive engine braking stages.
+
+#### Activation Conditions
+
+The control sequence begins when:
+
+- Current vehicle speed exceeds the configured limit.
+- Cruise control is active.
+
+#### Braking Progression
+
+| Stage | Fuel cut | Engine brake level | Active cylinders | VGT target |
+|---|---|---|---|---|
+| Initial | Active | NONE | 0 | 0% |
+| Low | Active | LOW | 2 | 75% |
+| Medium | Active | MEDIUM | 4 | 85% |
+| High | Active | HIGH | 6 | 95% |
+
+Compression-release engine braking and VGT braking operate together at each braking level.
+
+The active braking stage is stored in ECM runtime memory.
+
+#### Conditional Progression
+
+The function uses an `if / else if` structure to prevent all braking levels from being selected during the same function invocation.
+
+While the overspeed condition remains active:
+
+- `EB_LEVEL_NONE` advances to `EB_LEVEL_LOW`.
+- `EB_LEVEL_LOW` advances to `EB_LEVEL_MEDIUM`.
+- `EB_LEVEL_MEDIUM` advances to `EB_LEVEL_HIGH`.
+- `EB_LEVEL_HIGH` remains active until the reset condition is satisfied.
+
+Each invocation advances the braking sequence by at most one level.
+
+#### Reset Behavior
+
+When vehicle speed returns to or below the configured limit, or cruise control becomes inactive, the function resets:
+
+```c
+runtime->is_fuel_cut_active = false;
+runtime->active_engine_brake_cylinders = 0;
+runtime->VGT_Vane_Target_Duty_Cycle = 0;
+runtime->current_engine_brake_level = EB_LEVEL_NONE;
+```
+
+This returns the simulated braking system to its initial inactive state.
+
+#### Current Limitations
+
+The braking progression is based on consecutive function invocations rather than elapsed time or additional overspeed thresholds.
+
+Future development may introduce:
+
+- Time-based progression between braking stages
+- Speed-error thresholds
+- Engine speed restrictions
+- Brake availability and protection conditions
+- Additional cruise control operating states
+- Coordination with other ECM protection functions
+
+The configured maximum cruise set speed is being used as a simplified activation threshold. A production ECM would typically distinguish between maximum selectable cruise speed, the driver-selected cruise setpoint, and road-speed governing thresholds.
+
+VGT duty targets and braking cylinder assignments are simulation values, not validated engine hardware control commands.
+
+## Software Design Principles
+
+### Separation of Calibration and Runtime Data
+
+Calibration parameters are accessed through the `Subfile1` structure.
+
+```c
+sf1->CC_Max_Vehicle_Speed_Set_Limit
+```
+
+Live operating values are accessed through `ECMRuntimeState`.
+
+```c
+runtime->current_vehicle_speed
+```
+
+Control functions can read calibration settings while updating runtime states.
+
+### Pointer-Based Data Access
+
+Functions receive pointers to the appropriate structures.
+
+Example:
+
+```c
+void maxVehicleSetLimit(
+    const Subfile1 *sf1,
+    ECMRuntimeState *runtime);
+```
+
+The `const` qualifier protects calibration data from modification within the function.
+
+The mutable runtime pointer allows live control values to be updated.
+
+### Modular Development
+
+Each calibration subfile has a dedicated header and source file.
+
+Runtime state management is implemented separately to allow multiple control functions to operate on shared engine data.
+
+### Incremental Implementation
+
+The project intentionally uses an iterative development process.
+
+Initial functions are developed to satisfy specific requirements. As new control systems are introduced, existing functions may be refactored to accommodate additional dependencies and interactions.
+
+## Building the Project
+
+The project uses CMake for compilation.
+
+From the project root:
 
 ```bash
 cmake -S . -B build
 cmake --build build
 ```
 
-Run the executable from the build directory. Its name and location depend on the configured CMake target and platform.
+The executable can also be built and run using JetBrains CLion.
+
+All required `.c` files must be included in the CMake build target, and the `include/` directory must be configured as an include path.
+
+## Development Status
+
+**Status: Active development**
+
+### Implemented or integrated
+
+- [x] Eight-subfile project structure
+- [x] Separate header and source directories
+- [x] Subfile 1 calibration structure
+- [x] Calibration parameter default initialization
+- [x] Boot reason enumeration and flag evaluation
+- [x] Checksum comparison function
+- [x] Security salt comparison function
+- [x] ECM runtime memory structure
+- [x] Runtime initialization function
+- [x] Cruise overspeed condition evaluation
+- [x] Fuel cut activation
+- [x] Progressive LOW / MEDIUM / HIGH braking logic
+- [x] Coordinated VGT braking targets
+- [x] Reset logic for braking and fuel cut
+- [x] Main program integration
+
+### Future development
+
+- [ ] Time-based or threshold-based braking escalation
+- [ ] Additional runtime state validation
+- [ ] Functional tests for braking progression and reset conditions
+- [ ] Calibration parameter range validation
+- [ ] Actual CRC calculation
+- [ ] Expanded engine protection logic
+- [ ] Engine speed governing
+- [ ] Idle shutdown logic
+- [ ] Accelerator pedal interpretation
+- [ ] Transmission-related control logic
+- [ ] PTO control behavior
+- [ ] Aftertreatment control logic
+- [ ] Development of Subfiles 2–8
+- [ ] Additional integration testing
+
+This roadmap is subject to change as the ECM architecture develops.
 
 ## Project Goals
 
-The primary goal is to develop a deeper understanding of C programming through practical applications related to engine control systems.
+The primary goals are to:
 
-Rather than focusing on building a production-ready ECM, the project emphasizes understanding:
-
-1. How C source and header files work together.
-2. How structures organize engine-related data.
-3. How functions process and modify operating states.
-4. How pointers allow functions to access shared data.
-5. How software logic evaluates operating conditions.
-6. How larger embedded software systems can be organized into separate components.
+- Improve proficiency in C programming.
+- Gain practical experience with structures, pointers, enums, arrays, and conditional logic.
+- Develop familiarity with modular embedded-style software architecture.
+- Model the relationship between engine calibration and runtime control software.
+- Practice debugging and validating control behavior.
+- Explore interactions between engine subsystems.
+- Build a progressively more capable ECM simulation.
 
 ## Disclaimer
 
-This project is an independent educational simulation.
+This project is for educational and experimental purposes only.
 
-It is not affiliated with, endorsed by, or derived from proprietary source code belonging to Cummins Inc. or any other engine manufacturer.
+It does not interface with a physical engine or ECM and is not intended for vehicle installation, engine tuning, emissions-system modification, or safety-critical applications.
 
-All implemented algorithms, test values, and simulated operating conditions are intended for educational use only.
+All control strategies and calibration values should be considered simulated unless independently validated.
 
-**This software is not designed or validated to control a physical engine or vehicle.**
+## Author
 
-## Status
+**Timothy Long**
 
-**Early Development — Work in Progress**
+Background in heavy-duty diesel engine calibration, manufacturing quality, product design support, and software validation.
 
-The project is being developed incrementally as part of learning C programming and embedded software concepts.
+## Repository
+
+[github.com/timothayyy/ecm-software](https://github.com/timothayyy/ecm-software)
