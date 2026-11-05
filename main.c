@@ -1,4 +1,6 @@
 #include <stdio.h>
+
+#include "ecm_RAM.h"
 #include "include/subfile_1.h"
 
 int main(void) {
@@ -13,6 +15,9 @@ int main(void) {
     bool result = checkCRC(calculatedCRC, &sf1);
     checkBootReason(&sf1);
     checkSaltKey(&sf1, 1234);
+    ECMRuntimeState runtime = initializeECMRuntimeState();
+    void maxVehicleSetLimit(const Subfile1 *sf1,
+                            const ECMRuntimeState *state);
 
     if (result) {
         printf("CRC value matches expected CRC value\n");

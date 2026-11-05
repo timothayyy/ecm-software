@@ -15,6 +15,8 @@ typedef struct {
     uint16_t dynamic_requested_fuel_mass;
     bool is_fuel_cut_active;
     uint8_t VGT_Vane_Target_Duty_Cycle;
+    bool jake_brake_active;
+    uint8_t current_engine_brake_level;
     uint8_t active_engine_brake_cylinders;
 
     double current_coolant_temperatures;

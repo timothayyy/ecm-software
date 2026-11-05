@@ -5,7 +5,10 @@ set(CMAKE_C_STANDARD 23)
 
 add_executable(ecm
         main.c
+        include/subfile_1.h
         src/subfile_1.c
+        include/ecm_RAM.h
+        src/ecm_RAM.c
 )
 
 target_include_directories(ecm PRIVATE include)

@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "../include/subfile_1.h"
+#include "../include/ecm_RAM.h"
 
 #include <sys/resource.h>
 
@@ -33,7 +34,7 @@ Subfile1 sf1 = {
     .ENG_Cylinder_Count_Config = 6,
     .PTO_Governor_Type_Config = 1,
     .PTO_Max_Engine_Speed = 1100,
-    .EB_Engine_Brake_Level_Config = 3,
+    .EB_Engine_Brake_Level_Config = EB_LEVEL_NONE,
     .ATS_DPF_Regen_In_Transit_Permit = true,
     .ATS_DEF_Tank_Volume_Capacity = 15.0
 };
@@ -89,5 +90,34 @@ void checkSaltKey(const Subfile1 *sf1, uint32_t providedSalt) {
         printf("Security key does not match.\n");
     } else {
         printf("Success! Security key does match.\n");
+    }
+}
+
+void maxVehicleSetLimit(const Subfile1 *sf1, ECMRuntimeState *runtime) {
+
+    if (runtime->current_vehicle_speed > sf1->CC_Max_Vehicle_Speed_Set_Limit
+        && runtime->cruise_control_active_switch == true) {
+        runtime->is_fuel_cut_active = true;
+
+        if (runtime->current_engine_brake_level == EB_LEVEL_NONE) {
+            runtime->current_engine_brake_level = EB_LEVEL_LOW;
+            runtime->active_engine_brake_cylinders = 2;
+            runtime->VGT_Vane_Target_Duty_Cycle = 75;
+        }
+        else if (runtime->current_engine_brake_level == EB_LEVEL_LOW) {
+            runtime->current_engine_brake_level = EB_LEVEL_MEDIUM;
+            runtime->active_engine_brake_cylinders = 4;
+            runtime->VGT_Vane_Target_Duty_Cycle = 85;
+        }
+        else if (runtime->current_engine_brake_level == EB_LEVEL_MEDIUM) {
+            runtime->current_engine_brake_level = EB_LEVEL_HIGH;
+            runtime->active_engine_brake_cylinders = 6;
+            runtime->VGT_Vane_Target_Duty_Cycle = 95;
+        } else {
+            runtime->is_fuel_cut_active = false;
+            runtime->current_engine_brake_level = EB_LEVEL_NONE;
+            runtime->active_engine_brake_cylinders = 0;
+            runtime->VGT_Vane_Target_Duty_Cycle = 0;
+        }
     }
 }

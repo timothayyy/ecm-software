@@ -14,6 +14,7 @@ ECMRuntimeState initializeECMRuntime(void) {
         .dynamic_requested_fuel_mass = 0,
         .is_fuel_cut_active = false,
         .VGT_Vane_Target_Duty_Cycle = 0,
+        .jake_brake_active = false,
         .active_engine_brake_cylinders = 0,
 
         .current_coolant_temperatures = 0.0,
