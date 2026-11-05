@@ -10,6 +10,7 @@ ECMRuntimeState initializeECMRuntime(void) {
         .raw_accel_pedal_voltage = 0,
         .calculated_pedal_percent = 0,
         .cruise_control_active_switch = false,
+        .cruise_control_engage_permitted = false,
 
         .dynamic_requested_fuel_mass = 0,
         .is_fuel_cut_active = false,

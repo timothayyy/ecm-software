@@ -11,6 +11,7 @@ typedef struct {
     uint16_t raw_accel_pedal_voltage;
     uint8_t calculated_pedal_percent;
     bool cruise_control_active_switch;
+    bool cruise_control_engage_permitted;
 
     uint16_t dynamic_requested_fuel_mass;
     bool is_fuel_cut_active;

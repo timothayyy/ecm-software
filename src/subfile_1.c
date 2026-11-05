@@ -121,3 +121,9 @@ void maxVehicleSetLimit(const Subfile1 *sf1, ECMRuntimeState *runtime) {
         }
     }
 }
+
+void minimumEngageSpeed(const Subfile1 *sf1, ECMRuntimeState *runtime) {
+
+    runtime->cruise_control_engage_permitted =
+        runtime->current_vehicle_speed >= sf1->CC_Minimum_Engage_Speed;
+}
