@@ -250,7 +250,7 @@ The control sequence begins when:
 
 | Stage | Fuel cut | Engine brake level | Active cylinders | VGT target |
 |---|---|---|---|---|
-| Initial | Active | NONE | 0 | 0% |
+| Initial | Active | NONE | 0 | 40% |
 | Low | Active | LOW | 2 | 75% |
 | Medium | Active | MEDIUM | 4 | 85% |
 | High | Active | HIGH | 6 | 95% |
@@ -279,7 +279,7 @@ When vehicle speed returns to or below the configured limit, or cruise control b
 ```c
 runtime->is_fuel_cut_active = false;
 runtime->active_engine_brake_cylinders = 0;
-runtime->VGT_Vane_Target_Duty_Cycle = 0;
+runtime->VGT_Vane_Target_Duty_Cycle = 40;
 runtime->current_engine_brake_level = EB_LEVEL_NONE;
 ```
 
