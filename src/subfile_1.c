@@ -117,7 +117,7 @@ void maxVehicleSetLimit(const Subfile1 *sf1, ECMRuntimeState *runtime) {
             runtime->is_fuel_cut_active = false;
             runtime->current_engine_brake_level = EB_LEVEL_NONE;
             runtime->active_engine_brake_cylinders = 0;
-            runtime->VGT_Vane_Target_Duty_Cycle = 0;
+            runtime->VGT_Vane_Target_Duty_Cycle = 40;
         }
     }
 }
@@ -126,4 +126,48 @@ void minimumEngageSpeed(const Subfile1 *sf1, ECMRuntimeState *runtime) {
 
     runtime->cruise_control_engage_permitted =
         runtime->current_vehicle_speed >= sf1->CC_Minimum_Engage_Speed;
+}
+
+void maxEngageSpeed(const Subfile1 *sf1, ECMRuntimeState *runtime) {
+
+    runtime->cruise_control_engage_permitted =
+        runtime->current_vehicle_speed <= sf1->CC_Max_Vehicle_Speed_Set_Limit;
+
+    if (runtime->cruise_control_active_switch && runtime->cruise_control_latched) {
+
+        int16_t speed_delta = (int16_t)runtime->current_vehicle_speed -
+        (int16_t)sf1->CC_Max_Vehicle_Speed_Set_Limit;
+
+        if (speed_delta > 0) {
+
+            runtime->is_fuel_cut_active = true;
+            runtime->dynamic_requested_fuel_mass = 0;
+
+            uint16_t overshoot_delta = (uint16_t)speed_delta;
+
+            if (overshoot_delta <= 15) {
+                runtime->current_engine_brake_level = EB_LEVEL_LOW;
+                runtime->active_engine_brake_cylinders = 2;
+                runtime->VGT_Vane_Target_Duty_Cycle = 75;
+            }
+            else if (overshoot_delta <= 30) {
+                runtime->current_engine_brake_level = EB_LEVEL_MEDIUM;
+                runtime->active_engine_brake_cylinders = 4;
+                runtime->VGT_Vane_Target_Duty_Cycle = 85;
+            } else {
+                runtime->current_engine_brake_level = EB_LEVEL_HIGH;
+                runtime->active_engine_brake_cylinders = 6;
+                runtime->VGT_Vane_Target_Duty_Cycle = 95;
+            }
+        } else {
+            runtime->is_fuel_cut_active = false;
+            runtime->current_engine_brake_level = EB_LEVEL_NONE;
+            runtime->active_engine_brake_cylinders = 0;
+            runtime->VGT_Vane_Target_Duty_Cycle = 40;
+        }
+    } else {
+        runtime->is_fuel_cut_active = false;
+        runtime->current_engine_brake_level = EB_LEVEL_NONE;
+        runtime->active_engine_brake_cylinders = 0;
+    }
 }

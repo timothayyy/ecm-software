@@ -19,6 +19,7 @@ int main(void) {
     void maxVehicleSetLimit(const Subfile1 *sf1,
                             const ECMRuntimeState *state);
     void minimumEngineSpeed(const Subfile1 *sf1, ECMRuntimeState *runtime);
+    void maxEngineSpeed(const Subfile1 *sf1, ECMRuntimeState *runtime);
 
     if (result) {
         printf("CRC value matches expected CRC value\n");

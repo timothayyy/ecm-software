@@ -11,10 +11,11 @@ ECMRuntimeState initializeECMRuntime(void) {
         .calculated_pedal_percent = 0,
         .cruise_control_active_switch = false,
         .cruise_control_engage_permitted = false,
+        .cruise_control_latched = false,
 
         .dynamic_requested_fuel_mass = 0,
         .is_fuel_cut_active = false,
-        .VGT_Vane_Target_Duty_Cycle = 0,
+        .VGT_Vane_Target_Duty_Cycle = 40,
         .jake_brake_active = false,
         .active_engine_brake_cylinders = 0,
 
