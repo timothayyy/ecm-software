@@ -1,7 +1,9 @@
 #include <stdio.h>
 
-#include "ecm_RAM.h"
+#include "include/ecm_RAM.h"
 #include "include/subfile_1.h"
+#include "include/canbus.h"
+
 
 int main(void) {
 
@@ -16,14 +18,35 @@ int main(void) {
     checkBootReason(&sf1);
     checkSaltKey(&sf1, 1234);
     ECMRuntimeState runtime = initializeECMRuntime();
-    void maxVehicleSetLimit(const Subfile1 *sf1,
-                            const ECMRuntimeState *state);
-    void minimumEngineSpeed(const Subfile1 *sf1, ECMRuntimeState *runtime);
-    void maxEngineSpeed(const Subfile1 *sf1, ECMRuntimeState *runtime);
+    maxVehicleSetLimit(&sf1, &runtime);
+    minimumEngageSpeed(&sf1, &runtime);
+    maxEngageSpeed(&sf1, &runtime);
 
     if (result) {
         printf("CRC value matches expected CRC value\n");
     }
+
+    int sock_fd = -1;
+    struct sockaddr_in target_addr;
+
+    if (canbus_init(&sock_fd, &target_addr, "127.0.0.1", 5000) != 0) {
+        return 1;
+    }
+
+    ecm_canframe_t frame = {
+        .id = 0x0CF00400,
+        .dlc = 8,
+        .data = {0}
+    };
+
+    if (canbus_send(sock_fd, &frame, &target_addr) != 0) {
+        canbus_close(&sock_fd);
+        return 1;
+    }
+
+    printf("CAN frame transmitted successfully.\n");
+
+    canbus_close(&sock_fd);
 
     return 0;
 }

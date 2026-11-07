@@ -2,6 +2,7 @@
 #define ECM_SUBFILE_1_H
 
 #include <stdint.h>
+#include "ecm_RAM.h"
 
 typedef enum {
     COLD_BOOT                  = 1 << 0, // 00000001
@@ -38,7 +39,7 @@ typedef struct {
     uint8_t T_BOOT_REASON_FLAG;
     uint16_t CC_Max_Vehicle_Speed_Set_Limit;
     uint16_t CC_Minimum_Engage_Speed;
-    uint16_t CC_Max_Vehicle_Speed;
+    uint16_t CC_OEM_Max_Vehicle_Speed_Limit;
     uint16_t VSS_Tire_Revolution_Per_Mile;
     double Axle_Primary_Ratio;
     VSS_SensorType VSS_Sensor_Type_Config;
@@ -68,5 +69,8 @@ typedef struct {
 bool checkCRC(const uint32_t calculatedCRC[6], const Subfile1 *sf1);
 void checkBootReason(const Subfile1 *sf1);
 void checkSaltKey(const Subfile1 *sf1, uint32_t providedSalt);
+void maxVehicleSetLimit(const Subfile1 *sf1, ECMRuntimeState *runtime);
+void minimumEngageSpeed(const Subfile1 *sf1, ECMRuntimeState *runtime);
+void maxEngageSpeed(const Subfile1 *sf1, ECMRuntimeState *runtime);
 
 #endif //ECM_SUBFILE_1_H

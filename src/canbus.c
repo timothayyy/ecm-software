@@ -20,12 +20,23 @@ int canbus_init(int *sock_fd, struct sockaddr_in *target_addr,
 
     target_addr->sin_family = AF_INET;
     target_addr->sin_port = htons(port);
-    target_addr->sin_addr.s_addr = inet_addr(ip);
+
+    if (inet_pton(AF_INET, ip, &target_addr->sin_addr) != 1) {
+        fprintf(stderr, "Invalid destination IP address\n");
+        close(*sock_fd);
+        *sock_fd = -1;
+        return -1;
+    }
 
     return 0;
 }
 
-int canbus_send(int sock_fd, struct ecm_canframe_t *frame, struct sockaddr_in *target_addr) {
+int canbus_send(int sock_fd, ecm_canframe_t *frame, struct sockaddr_in *target_addr) {
+
+    if (frame->dlc > 8) {
+        fprintf(stderr, "Invalid CAN frame DLC\n");
+        return -1;
+    }
 
     ssize_t bytes_sent = sendto(
         sock_fd,
@@ -42,7 +53,8 @@ int canbus_send(int sock_fd, struct ecm_canframe_t *frame, struct sockaddr_in *t
     }
 
     if (bytes_sent != sizeof(ecm_canframe_t)) {
-        perror("Can't send frame");
+        fprintf(stderr, "Incomplete CAN frame transmission\n");
+        return -1;
     }
 
     return 0;
@@ -52,7 +64,7 @@ void canbus_close(int *sock_fd) {
 
     if (*sock_fd >= 0) {
         close(*sock_fd);
-        
+
         *sock_fd = -1;
     }
 }
