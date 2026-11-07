@@ -9,6 +9,7 @@ add_executable(ecm
         src/subfile_1.c
         include/ecm_RAM.h
         src/ecm_RAM.c
+        include/canbus.h
 )
 
 target_include_directories(ecm PRIVATE include)
