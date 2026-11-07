@@ -27,6 +27,9 @@ Development is iterative. Functions are implemented individually, tested, and re
 - **Version control:** Git
 - **Repository hosting:** GitHub
 - **Development environment:** macOS / Apple Silicon
+- **Networking:** POSIX sockets; local UDP frame transport and TCP connection testing
+- **Connection test tool:** Netcat (`nc`)
+- **Planned CAN analysis integration:** SavvyCAN via GVRET (not yet implemented)
 
 ## Project Structure
 
@@ -38,6 +41,7 @@ ecm-software/
 ├── main.c
 │
 ├── include/
+│   ├── canbus.h
 │   ├── ecm_RAM.h
 │   ├── subfile_1.h
 │   ├── subfile_2.h
@@ -49,6 +53,8 @@ ecm-software/
 │   └── subfile_8.h
 │
 └── src/
+    ├── canbus.c
+    ├── canbus_bridge.c
     ├── ecm_RAM.c
     ├── subfile_1.c
     ├── subfile_2.c
@@ -66,7 +72,9 @@ Header files in `include/` contain structure definitions, enumerations, and func
 
 ### Source Files
 
-Source files in `src/` contain function implementations for individual calibration subfiles and shared runtime functionality.
+Source files in `src/` contain function implementations for individual calibration subfiles, shared runtime functionality, and simulated CAN transport.
+
+`canbus.c` implements the ECM-side UDP sender, with declarations and the packed frame definition in `include/canbus.h`. `canbus_bridge.c` is a standalone program with its own entry point, built as a separate executable.
 
 ### Main Program
 
@@ -302,6 +310,70 @@ The configured maximum cruise set speed is being used as a simplified activation
 
 VGT duty targets and braking cylinder assignments are simulation values, not validated engine hardware control commands.
 
+## Simulated CAN Transport and Bridge
+
+The simulator now has local socket infrastructure for transporting simulated CAN frames. The verified milestone is **ECM-to-bridge UDP receipt and a successful TCP connection from Netcat**. GVRET encoding, initialization/handshake handling, and actual SavvyCAN linkage are not yet implemented.
+
+### ECM-Side UDP Sender
+
+`include/canbus.h` and `src/canbus.c` define and send a packed 13-byte frame over UDP to `127.0.0.1:5000`.
+
+| Field | Size | Purpose |
+|---|---|---|
+| CAN ID | 4 bytes | Simulated CAN identifier |
+| DLC | 1 byte | Number of valid payload bytes |
+| Data | 8 bytes | Fixed-size CAN payload storage |
+| **Total** | **13 bytes** | **Packed frame without structure padding** |
+
+This is a project-specific raw packed frame format, not GVRET. Packing fixes the frame size but does not define a portable byte order; the current sender and receiver are used together on the same host. The payload storage remains eight bytes even when the DLC indicates fewer valid bytes.
+
+### Standalone Bridge
+
+`src/canbus_bridge.c` runs independently of the ECM simulator and provides:
+
+- A UDP receiver bound to loopback address `127.0.0.1`, port `5000`.
+- Receipt and reporting of the simulated CAN ID and DLC.
+- A TCP listener bound to loopback address `127.0.0.1`, port `5001`.
+- TCP client connection acceptance, tested using Netcat.
+
+In the tested startup sequence, the bridge receives a UDP frame before starting the TCP listener. Start the bridge first, then run the ECM simulator, and wait for the TCP connection prompt before testing port `5001`.
+
+```text
+ECM simulator -- UDP: packed 13-byte frame --> canbus_bridge
+                                                |
+                                      TCP listener on 127.0.0.1:5001
+                                                |
+                                      Netcat connection test passed
+
+Planned: GVRET encoding + handshake --> actual SavvyCAN integration
+```
+
+### Verified Results and Remaining Work
+
+The bridge successfully reported:
+
+```text
+Received CAN ID: 0x0CF00400 | DLC: 8
+CAN frame received successfully!
+```
+
+The TCP listener also accepted a test connection using:
+
+```bash
+nc -vz 127.0.0.1 5001
+```
+
+Messages such as `Waiting for SavvyCAN connection...` or `SavvyCAN connected!` are current program log labels. In this test, the client was **Netcat**, so those messages do not establish a working SavvyCAN connection.
+
+**Not yet implemented or verified:**
+
+- GVRET packet encoding for simulated CAN frames.
+- GVRET initialization, command responses, and handshake handling.
+- Forwarding frames to a client in a SavvyCAN-compatible format.
+- Actual SavvyCAN connection and live frame display.
+
+A successful TCP connection confirms the listener accepts a client; it does not verify protocol compatibility or CAN frame delivery over TCP. The current tests also do not establish continuous streaming, reconnection handling, or physical CAN hardware support.
+
 ## Software Design Principles
 
 ### Separation of Calibration and Runtime Data
@@ -359,9 +431,38 @@ cmake -S . -B build
 cmake --build build
 ```
 
-The executable can also be built and run using JetBrains CLion.
+CMake defines separate executable targets for the ECM simulator and `canbus_bridge`. The simulator target includes `main.c`, the calibration/runtime modules, and `src/canbus.c`. The bridge target builds the standalone `src/canbus_bridge.c` program. Keep the two entry points in separate targets and configure the `include/` path for targets that use the shared headers.
 
-All required `.c` files must be included in the CMake build target, and the `include/` directory must be configured as an include path.
+To build only the bridge:
+
+```bash
+cmake --build build --target canbus_bridge
+```
+
+Both executables can also be built and run using JetBrains CLion. If using its existing `cmake-build-debug` directory:
+
+```bash
+cmake --build cmake-build-debug --target canbus_bridge
+./cmake-build-debug/canbus_bridge
+```
+
+### Running the Local Transport Test
+
+1. Build the project, then start the bridge in one terminal:
+
+   ```bash
+   ./build/canbus_bridge
+   ```
+
+2. Run the ECM simulator in a second terminal or through its CLion run configuration so it sends the test UDP frame to `127.0.0.1:5000`.
+3. Confirm the bridge reports receipt of the frame and reaches its TCP connection prompt.
+4. In another terminal, test the TCP listener:
+
+   ```bash
+   nc -vz 127.0.0.1 5001
+   ```
+
+This checks the UDP receipt and TCP acceptance milestones only. Netcat's `-z` connection probe does not perform a GVRET handshake or validate frame streaming. Rebuild after source changes; restart the bridge as needed for another test.
 
 ## Development Status
 
@@ -384,8 +485,20 @@ All required `.c` files must be included in the CMake build target, and the `inc
 - [x] Coordinated VGT braking targets
 - [x] Reset logic for braking and fuel cut
 - [x] Main program integration
+- [x] `canbus.h` / `canbus.c` packed 13-byte UDP frame sender
+- [x] Standalone `canbus_bridge.c` UDP receiver on `127.0.0.1:5000`
+- [x] Separate CMake executable targets for simulator and bridge
+- [x] Successful UDP receipt of test CAN frame (`0x0CF00400`, DLC 8)
+- [x] TCP listener on `127.0.0.1:5001`
+- [x] Successful Netcat TCP connection test
 
 ### Future development
+
+- [ ] GVRET frame encoding
+- [ ] GVRET initialization responses and handshake handling
+- [ ] SavvyCAN-compatible frame forwarding over TCP
+- [ ] Actual SavvyCAN linkage and live frame display verification
+- [ ] Continuous transport and client reconnection testing
 
 - [ ] Time-based or threshold-based braking escalation
 - [ ] Additional runtime state validation
