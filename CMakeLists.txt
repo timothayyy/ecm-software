@@ -14,3 +14,9 @@ add_executable(ecm
 )
 
 target_include_directories(ecm PRIVATE include)
+
+add_executable(canbus_bridge
+    src/canbus_bridge.c
+)
+
+target_include_directories(canbus_bridge PRIVATE include)
