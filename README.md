@@ -26,10 +26,11 @@ Development is iterative. Functions are implemented individually, tested, and re
 - **Compiler:** C23-compatible C compiler
 - **Version control:** Git
 - **Repository hosting:** GitHub
-- **Development environment:** macOS / Apple Silicon
-- **Networking:** POSIX sockets; local UDP frame transport and TCP connection testing
-- **Connection test tool:** Netcat (`nc`)
-- **Planned CAN analysis integration:** SavvyCAN via GVRET (not yet implemented)
+- **Development environment:** Ubuntu Linux
+- **CAN transport:** Linux SocketCAN with a virtual CAN interface (`vcan0`)
+- **CAN test tools:** `can-utils` (`candump`, `cansend`)
+- **ECM sender integration:** `src/canbus.c` may still use the earlier UDP transport; SocketCAN integration is pending
+- **Planned CAN analysis integration:** SavvyCAN (not yet connected; integration approach to be confirmed)
 
 ## Project Structure
 
@@ -74,7 +75,7 @@ Header files in `include/` contain structure definitions, enumerations, and func
 
 Source files in `src/` contain function implementations for individual calibration subfiles, shared runtime functionality, and simulated CAN transport.
 
-`canbus.c` implements the ECM-side UDP sender, with declarations and the packed frame definition in `include/canbus.h`. `canbus_bridge.c` is a standalone program with its own entry point, built as a separate executable.
+`canbus.c` previously implemented the ECM-side UDP sender, with declarations and the packed frame definition in `include/canbus.h`. It may still use that transport and has not yet been confirmed integrated with SocketCAN. `canbus_bridge.c` is now a standalone SocketCAN one-frame receiver with its own entry point, built as a separate executable.
 
 ### Main Program
 
@@ -310,13 +311,34 @@ The configured maximum cruise set speed is being used as a simplified activation
 
 VGT duty targets and braking cylinder assignments are simulation values, not validated engine hardware control commands.
 
-## Simulated CAN Transport and Bridge
+## SocketCAN Transport and Receiver
 
-The simulator now has local socket infrastructure for transporting simulated CAN frames. The verified milestone is **ECM-to-bridge UDP receipt and a successful TCP connection from Netcat**. GVRET encoding, initialization/handshake handling, and actual SavvyCAN linkage are not yet implemented.
+The current verified milestone is **Ubuntu Linux SocketCAN communication on `vcan0`**, tested with `can-utils`, followed by successful receipt of a frame sent with `cansend` by `src/canbus_bridge.c`.
 
-### ECM-Side UDP Sender
+The bridge was changed from the earlier UDP receiver and TCP listener implementation to a **SocketCAN one-frame receiver**. The current test does not establish end-to-end communication from the ECM simulator or a connection to SavvyCAN.
 
-`include/canbus.h` and `src/canbus.c` define and send a packed 13-byte frame over UDP to `127.0.0.1:5000`.
+### Virtual CAN Interface
+
+`vcan0` is a Linux virtual CAN interface. It allows local CAN frame testing without physical CAN hardware. `candump` and `cansend` have been successfully used to verify communication on this interface.
+
+### Standalone SocketCAN Receiver
+
+`src/canbus_bridge.c` opens a raw SocketCAN socket, binds to `vcan0`, and receives one CAN frame. Its receipt of a frame injected with `cansend` has been confirmed.
+
+Despite the existing filename and executable name, this version is a receiver test; it does not yet forward frames to another application. Restart it for each additional one-frame test.
+
+```text
+cansend vcan0 <frame> --> Linux SocketCAN / vcan0 --> canbus_bridge
+                                    |
+                                    +--> candump vcan0 (monitor)
+
+Pending: ECM-side canbus.c --> SocketCAN / vcan0
+Pending: SavvyCAN connection and live frame display
+```
+
+### ECM-Side Transport: Integration Pending
+
+The earlier `include/canbus.h` and `src/canbus.c` implementation sent a project-specific packed 13-byte frame over UDP to `127.0.0.1:5000`:
 
 | Field | Size | Purpose |
 |---|---|---|
@@ -325,54 +347,27 @@ The simulator now has local socket infrastructure for transporting simulated CAN
 | Data | 8 bytes | Fixed-size CAN payload storage |
 | **Total** | **13 bytes** | **Packed frame without structure padding** |
 
-This is a project-specific raw packed frame format, not GVRET. Packing fixes the frame size but does not define a portable byte order; the current sender and receiver are used together on the same host. The payload storage remains eight bytes even when the DLC indicates fewer valid bytes.
+That sender may still be present. Updating `canbus_bridge.c` does not automatically migrate `canbus.c`; an ECM UDP datagram cannot be received by the new SocketCAN receiver. Inspect and update the ECM sender before claiming ECM-to-SocketCAN integration.
 
-### Standalone Bridge
-
-`src/canbus_bridge.c` runs independently of the ECM simulator and provides:
-
-- A UDP receiver bound to loopback address `127.0.0.1`, port `5000`.
-- Receipt and reporting of the simulated CAN ID and DLC.
-- A TCP listener bound to loopback address `127.0.0.1`, port `5001`.
-- TCP client connection acceptance, tested using Netcat.
-
-In the tested startup sequence, the bridge receives a UDP frame before starting the TCP listener. Start the bridge first, then run the ECM simulator, and wait for the TCP connection prompt before testing port `5001`.
-
-```text
-ECM simulator -- UDP: packed 13-byte frame --> canbus_bridge
-                                                |
-                                      TCP listener on 127.0.0.1:5001
-                                                |
-                                      Netcat connection test passed
-
-Planned: GVRET encoding + handshake --> actual SavvyCAN integration
-```
+The old packed UDP format is neither a native SocketCAN frame nor GVRET. SocketCAN integration must use the Linux CAN frame representation and handle extended identifiers appropriately.
 
 ### Verified Results and Remaining Work
 
-The bridge successfully reported:
+**Verified:**
 
-```text
-Received CAN ID: 0x0CF00400 | DLC: 8
-CAN frame received successfully!
-```
+- Ubuntu Linux `vcan0` setup and communication using `can-utils`.
+- `canbus_bridge.c` changed from UDP/TCP to a SocketCAN one-frame receiver.
+- Successful frame receipt by that receiver using `cansend`.
 
-The TCP listener also accepted a test connection using:
+**Not yet integrated or verified:**
 
-```bash
-nc -vz 127.0.0.1 5001
-```
-
-Messages such as `Waiting for SavvyCAN connection...` or `SavvyCAN connected!` are current program log labels. In this test, the client was **Netcat**, so those messages do not establish a working SavvyCAN connection.
-
-**Not yet implemented or verified:**
-
-- GVRET packet encoding for simulated CAN frames.
-- GVRET initialization, command responses, and handshake handling.
-- Forwarding frames to a client in a SavvyCAN-compatible format.
+- ECM-side `canbus.c` transmission through SocketCAN.
+- End-to-end ECM simulator frame delivery on `vcan0`.
+- Continuous receive/forwarding operation and error recovery.
 - Actual SavvyCAN connection and live frame display.
+- Physical CAN hardware operation.
 
-A successful TCP connection confirms the listener accepts a client; it does not verify protocol compatibility or CAN frame delivery over TCP. The current tests also do not establish continuous streaming, reconnection handling, or physical CAN hardware support.
+The earlier UDP receipt and Netcat TCP connection were historical milestones for the replaced bridge implementation. They are not tests of the current SocketCAN receiver, and Netcat did not establish a SavvyCAN connection. GVRET encoding and handshake handling remain unimplemented; whether they are needed depends on the eventual SavvyCAN integration approach.
 
 ## Software Design Principles
 
@@ -446,23 +441,70 @@ cmake --build cmake-build-debug --target canbus_bridge
 ./cmake-build-debug/canbus_bridge
 ```
 
-### Running the Local Transport Test
+### Preparing SocketCAN on Ubuntu
 
-1. Build the project, then start the bridge in one terminal:
+Install the build tools and CAN utilities:
+
+```bash
+sudo apt update
+sudo apt install build-essential cmake can-utils iproute2
+```
+
+Use a compiler that supports the project's configured C23 requirements.
+
+Create and enable the virtual CAN interface:
+
+```bash
+sudo modprobe vcan
+sudo ip link add dev vcan0 type vcan
+sudo ip link set dev vcan0 up
+ip -details link show vcan0
+```
+
+If `vcan0` already exists, skip the `ip link add` command and bring it up. This setup is temporary; recreate the interface after a reboot unless persistence is configured separately.
+
+### Testing the Virtual CAN Interface
+
+In one terminal, monitor frames:
+
+```bash
+candump vcan0
+```
+
+In another terminal, send an eight-byte test frame with an extended CAN identifier:
+
+```bash
+cansend vcan0 0CF00400#1122334455667788
+```
+
+Confirm that `candump` shows ID `0CF00400` and the eight payload bytes. This verifies the virtual interface independently of the simulator.
+
+### Testing the Standalone Receiver
+
+1. From the project root, configure and build the receiver:
+
+   ```bash
+   cmake -S . -B build
+   cmake --build build --target canbus_bridge
+   ```
+
+2. Start the receiver and leave it waiting for a frame:
 
    ```bash
    ./build/canbus_bridge
    ```
 
-2. Run the ECM simulator in a second terminal or through its CLion run configuration so it sends the test UDP frame to `127.0.0.1:5000`.
-3. Confirm the bridge reports receipt of the frame and reaches its TCP connection prompt.
-4. In another terminal, test the TCP listener:
+3. In another terminal, send the test frame:
 
    ```bash
-   nc -vz 127.0.0.1 5001
+   cansend vcan0 0CF00400#1122334455667788
    ```
 
-This checks the UDP receipt and TCP acceptance milestones only. Netcat's `-z` connection probe does not perform a GVRET handshake or validate frame streaming. Rebuild after source changes; restart the bridge as needed for another test.
+4. Confirm that the receiver reports the received frame. This implementation receives one frame; restart it before repeating the test.
+
+If using the existing CLion build directory, use `./cmake-build-debug/canbus_bridge` after rebuilding that target. Rebuild after source changes.
+
+Running the ECM simulator is a separate control-logic test until its sender is migrated to SocketCAN. The current receiver test uses `cansend` as the sender. No TCP listener, Netcat probe, or SavvyCAN connection is required for this test.
 
 ## Development Status
 
@@ -485,20 +527,22 @@ This checks the UDP receipt and TCP acceptance milestones only. Netcat's `-z` co
 - [x] Coordinated VGT braking targets
 - [x] Reset logic for braking and fuel cut
 - [x] Main program integration
-- [x] `canbus.h` / `canbus.c` packed 13-byte UDP frame sender
-- [x] Standalone `canbus_bridge.c` UDP receiver on `127.0.0.1:5000`
 - [x] Separate CMake executable targets for simulator and bridge
-- [x] Successful UDP receipt of test CAN frame (`0x0CF00400`, DLC 8)
-- [x] TCP listener on `127.0.0.1:5001`
-- [x] Successful Netcat TCP connection test
+- [x] Ubuntu Linux SocketCAN virtual interface (`vcan0`) tested with `can-utils`
+- [x] `canbus_bridge.c` converted from UDP/TCP to a SocketCAN one-frame receiver
+- [x] Successful SocketCAN receiver test using `cansend`
+
+The earlier ECM UDP sender and UDP/TCP bridge tests are historical progress. The ECM sender may still use UDP; its SocketCAN migration is not yet confirmed.
 
 ### Future development
 
-- [ ] GVRET frame encoding
-- [ ] GVRET initialization responses and handshake handling
-- [ ] SavvyCAN-compatible frame forwarding over TCP
-- [ ] Actual SavvyCAN linkage and live frame display verification
-- [ ] Continuous transport and client reconnection testing
+- [ ] Inspect and migrate ECM-side `canbus.c` / `canbus.h` to SocketCAN as needed
+- [ ] Verify end-to-end ECM simulator transmission and receipt on `vcan0`
+- [ ] Extend one-frame reception to continuous operation
+- [ ] Add transport error handling and recovery testing
+- [ ] Select and implement the SavvyCAN integration approach
+- [ ] Actual SavvyCAN connection and live frame display verification
+- [ ] GVRET encoding, initialization responses, handshake, and forwarding if that approach is selected
 
 - [ ] Time-based or threshold-based braking escalation
 - [ ] Additional runtime state validation

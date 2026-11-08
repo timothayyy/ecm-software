@@ -1,141 +1,119 @@
+
 #include "canbus.h"
 #include <stdio.h>
+#include <stdint.h>
+#include <string.h>
 #include <unistd.h>
 #include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
+#include <net/if.h>
+#include <linux/can.h>
+#include <linux/can/raw.h>
 
 int bridge_init(void) {
 
-    int sock_fd = socket(AF_INET, SOCK_DGRAM, 0);
+    int sock_fd = socket(PF_CAN, SOCK_RAW, CAN_RAW);
 
     if (sock_fd < 0) {
-        perror("Failed to create bridge socket");
+        perror("Failed to create SocketCAN socket");
         return -1;
     }
 
-    struct sockaddr_in local_addr = {0};
+    unsigned int ifindex = if_nametoindex("vcan0");
 
-    local_addr.sin_family = AF_INET;
-    local_addr.sin_port = htons(5000);
-    local_addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-
-    if (bind(sock_fd, (struct sockaddr *)&local_addr, sizeof(local_addr)) < 0) {
-        perror("Failed to bind socket");
+    if (ifindex == 0) {
+        perror("Failed to locate vcan0");
         close(sock_fd);
         return -1;
     }
+
+    struct sockaddr_can local_addr = {0};
+
+    local_addr.can_family = AF_CAN;
+    local_addr.can_ifindex = (int)ifindex;
+
+    if (bind(sock_fd,
+             (struct sockaddr *)&local_addr,
+             sizeof(local_addr)) < 0) {
+
+        perror("Failed to bind SocketCAN socket");
+        close(sock_fd);
+        return -1;
+    }
+
     return sock_fd;
 }
 
 int bridge_recvfrom(int sock_fd, ecm_canframe_t *frame) {
 
-    ssize_t bytes_received = recvfrom(
+    struct can_frame linux_frame = {0};
+
+    ssize_t bytes_received = read(
         sock_fd,
-        frame,
-        sizeof(ecm_canframe_t),
-        0,
-        NULL,
-        NULL
+        &linux_frame,
+        sizeof(linux_frame)
     );
 
     if (bytes_received < 0) {
-        perror("Failed to receive frame");
+        perror("Failed to receive CAN frame");
         return -1;
     }
 
-    if (bytes_received != sizeof(ecm_canframe_t)) {
-        fprintf(stderr, "Invalid CAN frame size: %zd bytes\n", bytes_received);
+    if (bytes_received != sizeof(linux_frame)) {
+        fprintf(stderr, "Invalid CAN frame size\n");
         return -1;
     }
+
+    if (linux_frame.can_id & CAN_ERR_FLAG) {
+        fprintf(stderr, "CAN error frame received\n");
+        return -1;
+    }
+
+    frame->id = (linux_frame.can_id & CAN_EFF_FLAG)
+        ? (linux_frame.can_id & CAN_EFF_MASK)
+        : (linux_frame.can_id & CAN_SFF_MASK);
+
+    frame->dlc = linux_frame.len;
 
     if (frame->dlc > 8) {
-        fprintf(stderr, "Invalid received CAN DLC\n");
+        fprintf(stderr, "Invalid CAN DLC\n");
         return -1;
     }
 
-printf("Received CAN ID: 0x%08X | DLC: %u\n",
-    frame->id, frame->dlc);
+    memcpy(frame->data, linux_frame.data, frame->dlc);
 
-return 0;
-}
+    printf("Received CAN ID: 0x%08X | DLC: %u\n",
+           (unsigned int)frame->id, frame->dlc);
 
-int bridge_tcp_init(void) {
-    int sock_fd = socket(AF_INET, SOCK_STREAM, 0);
-
-    if (sock_fd < 0) {
-        perror("Failed to create bridge socket");
-        return -1;
-    }
-
-    struct sockaddr_in local_addr = {0};
-
-    local_addr.sin_family = AF_INET;
-    local_addr.sin_port = htons(5001);
-    local_addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-
-    if (bind(sock_fd, (struct sockaddr *)&local_addr, sizeof(local_addr)) < 0) {
-        perror("Failed to bind socket");
-        close(sock_fd);
-        return -1;
-    }
-
-    if (listen(sock_fd, SOMAXCONN) < 0) {
-        perror("Failed to listen on socket");
-        close(sock_fd);
-        return -1;
-    }
-
-    return sock_fd;
+    return 0;
 }
 
 int main(void) {
 
-    printf("Starting UDP receiver...\n");
-    fflush(stdout);
+    printf("Starting Linux SocketCAN receiver...\n");
 
-    int udp_fd = bridge_init();
+    int can_fd = bridge_init();
 
-    if (udp_fd < 0) {
+    if (can_fd < 0) {
         return 1;
     }
 
+    printf("Listening on vcan0...\n");
+
     ecm_canframe_t frame = {0};
 
-    printf("Waiting for CAN frame from ECM...\n");
-    fflush(stdout);
-
-    if (bridge_recvfrom(udp_fd, &frame) != 0) {
-        close(udp_fd);
+    if (bridge_recvfrom(can_fd, &frame) != 0) {
+        close(can_fd);
         return 1;
     }
 
     printf("CAN frame received successfully!\n");
-    fflush(stdout);
 
-    printf("Starting TCP server...\n");
-    fflush(stdout);
-
-    int listen_fd = bridge_tcp_init();
-
-    if (listen_fd < 0) {
-        close(udp_fd);
-        return 1;
+    for (unsigned int i = 0; i < frame.dlc; i++) {
+        printf("%02X ", frame.data[i]);
     }
 
-    printf("Waiting for SavvyCAN connection...\n");
-    fflush(stdout);
+    printf("\n");
 
-    if (accept(listen_fd, NULL, NULL) < 0) {
-        close(listen_fd);
-        close(udp_fd);
-        return 1;
-    }
-
-    printf("SavvyCAN connected!\n");
-
-    close(listen_fd);
-    close(udp_fd);
-
+    close(can_fd);
     return 0;
 }
